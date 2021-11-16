@@ -2,7 +2,11 @@
 #include <math.h>
 #include <assert.h>
 #include "uwnet.h"
+// Colab with varsha konda -> vkonda@
 
+float logistic(float x) {
+    return (1.0)/(1.0 + exp(-x)); 
+}
 
 // Run an activation layer on input
 // layer l: pointer to layer to run
@@ -24,6 +28,37 @@ matrix forward_activation_layer(layer l, matrix x)
     // relu(x)     = x if x > 0 else 0
     // lrelu(x)    = x if x > 0 else .01 * x
     // softmax(x)  = e^{x_i} / sum(e^{x_j}) for all x_j in the same row 
+    int i, j, index;
+    float sum, val;
+    for (i = 0; i < x.rows; i++) {
+        sum = 0.0;
+        for (j = 0; j < x.cols; j++) {
+            index = i*x.cols + j;
+            val = x.data[index];
+            if (a == LOGISTIC) {
+                y.data[index] = logistic(val);
+            } else if (a == RELU) {
+                y.data[index] = val;
+                if (val < 0) {
+                    y.data[index] = 0;
+                }
+            } else if (a == LRELU) {
+                y.data[index] = val;
+                if (val < 0) {
+                    y.data[index] = .01*val;
+                }
+            } else if (a == SOFTMAX) {
+                y.data[index] = exp(val);
+            }
+            sum += (exp(val));
+        }
+        if (a == SOFTMAX) {
+            for (j = 0; j < x.cols; j++) {
+                index = i*x.cols + j;
+                y.data[index] = y.data[index]/sum;
+            }
+        }
+    }
 
     return y;
 }
@@ -47,6 +82,27 @@ matrix backward_activation_layer(layer l, matrix dy)
     // d/dx relu(x)     = 1 if x > 0 else 0
     // d/dx lrelu(x)    = 1 if x > 0 else 0.01
     // d/dx softmax(x)  = 1
+    int i, j, index;
+    float derivative, val;
+    for (i = 0; i < x.rows; i++) {
+        for (j = 0; j < x.cols; j++) {
+            index = i*x.cols + j;
+            derivative = 1.0;
+            val = x.data[index];
+            if (a == LOGISTIC) {
+                derivative = (logistic(val)) * (1 - (logistic(val)));
+            } else if (a == RELU) {
+                if (val < 0) {
+                    derivative = 0.0;
+                }
+            } else if (a == LRELU) {
+                if (val < 0) {
+                    derivative = 0.01;
+                }
+            }
+            dx.data[index] *= derivative;
+        }
+    }
 
     return dx;
 }

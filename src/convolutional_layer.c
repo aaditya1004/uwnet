@@ -41,6 +41,16 @@ matrix backward_convolutional_bias(matrix dy, int n)
     return db;
 }
 
+static float obtain_value(image im, int height, int width, int row, int col, int channel, int pad) {
+    row -= pad;
+    col -= pad;
+    if (row < 0 || col < 0 || col >= width || row >= height) {
+        return 0.0;
+    } else {
+        return im.data[col + width*(row + height*channel)];
+    }
+}
+
 // Make a column matrix out of an image
 // image im: image to process
 // int size: kernel size for convolution operation
@@ -57,9 +67,29 @@ matrix im2col(image im, int size, int stride)
 
     // TODO: 5.1
     // Fill in the column matrix with patches from the image
+    // printf("size: %d, stride: %d", size, stride);
+    for (int c = 0; c < rows; ++c) {
 
+        int c_im = (c / size) / size;
 
+        int w_o = c % size;
+        int h_o = (c / size) % size;
 
+        for (int h = 0; h < outh; ++h) {
+
+            for (int w = 0; w < outw; ++w) {
+
+                int row_im = h_o + h * stride;
+                int col_im = w_o + w * stride;
+
+                int col_index = (c * outh + h) * outw + w;
+
+                col.data[col_index] = obtain_value(im, im.h, im.w, row_im, col_im, c_im, (size - 1) / 2);
+            }
+
+        }
+
+    }
     return col;
 }
 
@@ -74,13 +104,36 @@ image col2im(int width, int height, int channels, matrix col, int size, int stri
 
     image im = make_image(width, height, channels);
     int outw = (im.w-1)/stride + 1;
+    int outh = (im.h-1)/stride + 1;
     int rows = im.c*size*size;
 
     // TODO: 5.2
     // Add values into image im from the column matrix
-    
+    int padding = (size - 1) / 2;
+    for (int c = 0; c < rows; ++c) {
 
+        int c_im = (c / size) / size;
 
+        int w_o = c % size;
+        int h_o = (c / size) % size;
+
+        for (int h = 0; h < outh; ++h) {
+
+            for (int w = 0; w < outw; ++w) {
+
+                int row_im = h_o + h * stride;
+                int col_im = w_o + w * stride;
+                int col_index = (c * outh + h) * outw + w;
+                row_im -= padding;
+                col_im -= padding;
+                if (row_im >= 0 && col_im >= 0 && col_im < width && row_im < height) {
+                    im.data[col_im + width*(row_im + height * c_im)] += col.data[col_index];
+                }
+            }
+
+        }
+        
+    }
     return im;
 }
 
@@ -174,6 +227,11 @@ matrix backward_convolutional_layer(layer l, matrix dy)
 void update_convolutional_layer(layer l, float rate, float momentum, float decay)
 {
     // TODO: 5.3
+    axpy_matrix(decay, l.w, l.dw);
+    axpy_matrix(-rate, l.dw, l.w);
+    scal_matrix(momentum, l.dw);
+    axpy_matrix(-rate, l.db, l.b);
+    scal_matrix(momentum, l.db);
 }
 
 // Make a new convolutional layer

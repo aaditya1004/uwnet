@@ -21,9 +21,50 @@ matrix forward_maxpool_layer(layer l, matrix in)
     matrix out = make_matrix(in.rows, outw*outh*l.channels);
 
     // TODO: 6.1 - iterate over the input and fill in the output with max values
+    int out_c = 0;
+    int padding = (l.size - 1) / 2;
+    for (int im = 0; im < in.rows; im++) {
 
+        float* c_im = in.data + im*in.cols;
+        float* c_out = out.data + im*out.cols;
 
+        for (int c = 0; c < l.channels; c++) {
 
+            for (int y = 0; y < l.height; y += l.stride) {
+
+                for (int x = 0; x < l.width; x += l.stride) {
+
+                    float max = 0;
+
+                    for (int f_y = 0; f_y < l.size; f_y++) {
+
+                        for (int f_x = 0; f_x < l.size; f_x++) {
+
+                            int o_y = y + f_y - padding;
+                            int o_x = x + f_x - padding;
+
+                            if (o_x >= 0 && o_x < l.width && o_y >= 0 && o_y < l.height) {
+                                float curr = c_im[c * l.width * l.height + o_y * l.width + o_x];
+                                if (curr > max) {
+                                    max = curr;
+                                }
+                            }
+                        }
+
+                    }
+
+                    c_out[outw * outh * c + out_c] = max;
+                    out_c++;
+
+                }
+
+            }
+
+            out_c = 0;
+
+        }
+        
+    }
     return out;
 }
 
@@ -40,9 +81,52 @@ matrix backward_maxpool_layer(layer l, matrix dy)
     // TODO: 6.2 - find the max values in the input again and fill in the
     // corresponding delta with the delta from the output. This should be
     // similar to the forward method in structure.
+    int out_c = 0;
+    int padding = (l.size - 1) / 2;
+    for (int im = 0; im < in.rows; im++) {
+        float* layer_im = in.data + im*in.cols;
+        float* dy_im = dy.data + im*dy.cols;
+        float* dx_im = dx.data + im*dx.cols;
+        for (int c = 0; c < l.channels; c++) {
 
+            for (int y = 0; y < l.height; y += l.stride) {
 
+                for (int x = 0; x < l.width; x += l.stride) {
 
+                    int max_x = 0;
+                    int max_y = 0;
+                    float max = 0;
+
+                    for (int f_y = 0; f_y < l.size; f_y++) {
+
+                        for (int f_x = 0; f_x < l.size; f_x++) {
+                            
+                            int o_y = y + f_y - padding;
+                            int o_x = x + f_x - padding;
+
+                            if (o_x >= 0 && o_x < l.width && o_y >= 0 && o_y < l.height) {
+                                float curr = layer_im[c * l.width * l.height + o_y * l.width + o_x];
+                                if (curr > max) {
+                                    max = curr;
+                                    max_x = o_x;
+                                    max_y = o_y;
+                                }
+                            }
+
+                        }
+
+                    }
+
+                    dx_im[c * l.width * l.height + max_y * l.width + max_x] += dy_im[out_c + outw * outh * c];
+                    out_c++;
+
+                }
+
+            }
+            out_c = 0;
+
+        }
+    }
     return dx;
 }
 

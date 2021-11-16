@@ -2,6 +2,7 @@
 #include <math.h>
 #include <assert.h>
 #include "uwnet.h"
+// Colab with varsha konda -> vkonda@
 
 // Add bias terms to a matrix
 // matrix xw: partially computed output of layer
@@ -49,9 +50,9 @@ matrix forward_connected_layer(layer l, matrix x)
     *l.x = copy_matrix(x);
 
     // TODO: 3.1 - run the network forward
-    matrix y = make_matrix(x.rows, l.w.cols); // Going to want to change this!
-
-
+    matrix y, xw;
+    xw = matmul(x, l.w);
+    y = forward_bias(xw, l.b);
     return y;
 }
 
@@ -71,8 +72,14 @@ matrix backward_connected_layer(layer l, matrix dy)
     // updates for our weights, which are stored in l.dw
 
     // Calculate dL/dx and return it
-    matrix dx = copy_matrix(x); // Change this
+    matrix db = backward_bias(dy);
+    matrix xt = transpose_matrix(x);
+    matrix wt = transpose_matrix(l.w);
+    matrix dw = matmul(xt, dy);
+    matrix dx = matmul(dy, wt);
 
+    axpy_matrix(1.0, dw, l.dw);
+    axpy_matrix(1.0, db, l.db);
 
     return dx;
 }
@@ -93,6 +100,12 @@ void update_connected_layer(layer l, float rate, float momentum, float decay)
     // we want it to be (-momentum * update) so we just need to scale it a little
 
     // Do the same for biases as well but no need to use weight decay on biases
+    axpy_matrix(decay, l.w, l.dw);
+    axpy_matrix(-rate, l.dw, l.w);
+    scal_matrix(momentum, l.dw);
+
+    axpy_matrix(-rate, l.db, l.b);
+    scal_matrix(momentum, l.db);
 }
 
 layer make_connected_layer(int inputs, int outputs)

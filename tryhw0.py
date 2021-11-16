@@ -1,5 +1,7 @@
 from uwnet import *
 
+# Colab with varsha konda -> vkonda@
+
 mnist = 1
 
 inputs = 784 if mnist else 3072
@@ -10,9 +12,11 @@ def softmax_model():
     return make_net(l)
 
 def neural_net():
-    l = [   make_connected_layer(inputs, 32),
-            make_activation_layer(RELU),
-            make_connected_layer(32, 10),
+    l = [   make_connected_layer(inputs, 256),
+            make_activation_layer(LRELU),
+            make_connected_layer(256, 64),
+            make_activation_layer(LRELU),
+            make_connected_layer(64, 10),
             make_activation_layer(SOFTMAX)]
     return make_net(l)
 
@@ -29,11 +33,12 @@ print
 print("making model...")
 batch = 128
 iters = 5000
-rate = .01
+rate = .05
 momentum = .9
-decay = .0
+decay = .1
 
-m = softmax_model()
+# m = softmax_model()
+m = neural_net()
 print("training...")
 train_image_classifier(m, train, batch, iters, rate, momentum, decay)
 print("done")
