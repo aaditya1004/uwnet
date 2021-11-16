@@ -3,6 +3,8 @@
 #include <assert.h>
 #include "uwnet.h"
 
+#define EPS 0.00001
+
 // Take mean of matrix x over rows and spatial dimension
 // matrix x: matrix with data
 // int groups: number of distinct means to take, usually equal to # outputs
@@ -30,6 +32,24 @@ matrix variance(matrix x, matrix m, int groups)
 {
     matrix v = make_matrix(1, groups);
     // TODO: 7.1 - Calculate variance
+    int i, j, n;
+    n = x.cols/groups;
+
+    for (i = 0; i < x.rows; i++) {
+        for (j = 0; j < x.cols; j++) {
+            int index = i*x.cols + j;
+            int channel = j/n;
+
+            float diff = x.data[index] - m.data[channel];
+
+            v.data[channel] += pow(diff, 2.0);
+        }
+    }
+
+    for(i = 0; i < v.cols; ++i){
+        v.data[i] = v.data[i] / x.rows / n;
+    }
+
     return v;
 }
 
@@ -39,6 +59,18 @@ matrix normalize(matrix x, matrix m, matrix v, int groups)
 {
     matrix norm = make_matrix(x.rows, x.cols);
     // TODO: 7.2 - Normalize x
+    int i, j, n;
+    float mean, var, data;
+    n = x.cols/groups;
+    for (i = 0; i < x.rows; i++) {
+        for (j = 0; j < x.cols; j++) {
+            mean = m.data[j/n];
+            var = v.data[j/n];
+            data = x.data[i*x.cols + j];
+            norm.data[i*x.cols + j] = (data-mean)/sqrt(var + EPS);
+        }
+    }
+
     return norm;
 }
 
@@ -79,6 +111,15 @@ matrix delta_mean(matrix d, matrix v)
     int groups = v.cols;
     matrix dm = make_matrix(1, groups);
     // TODO 7.3 - Calculate dL/dm
+    int i, j, n, index, channel; 
+    n = d.cols/groups;
+    for (i = 0; i < d.rows; i++) {
+        for (j = 0; j < d.cols; j++) {
+            index = i*d.cols + j;
+            channel = j/n;
+            dm.data[channel] += (d.data[index])*(-1.0/sqrt(v.data[channel] + EPS));
+        }
+    }
     return dm;
 }
 
@@ -88,6 +129,23 @@ matrix delta_variance(matrix d, matrix x, matrix m, matrix v)
     int groups = m.cols;
     matrix dv = make_matrix(1, groups);
     // TODO 7.4 - Calculate dL/dv
+    int i, j, n, index1, index2, channel;
+    n = d.cols/groups;
+    float dldy, dmean, dvariance;
+
+    for (i = 0; i < d.rows; i++) {
+        for (j = 0; j < d.cols; j++) {
+            index1 = i*d.cols + j;
+            index2 = i*x.cols + j;
+            channel = j/n;
+
+            dldy = d.data[index1];
+            dmean = x.data[index2] - m.data[channel];
+            dvariance = (-1.0/2)*pow(v.data[channel] + EPS, (-3.0/2.0));
+
+            dv.data[channel] += (dldy * dmean * dvariance);
+        }
+    }
     return dv;
 }
 
@@ -95,6 +153,24 @@ matrix delta_batch_norm(matrix d, matrix dm, matrix dv, matrix m, matrix v, matr
 {
     matrix dx = make_matrix(d.rows, d.cols);
     // TODO 7.5 - Calculate dL/dx
+    int groups = m.cols;
+    int i, j, n, index1, index2, index3, channel, nd;
+    n = d.cols/groups;
+    nd = n * dx.rows;
+    for (i = 0; i < dx.rows; i++) {
+        for (j = 0; j < dx.cols; j++) {
+
+            index1 = i*d.cols + j;
+            index2 = i*x.cols + j;
+            index3 = i*dx.cols + j;
+            channel = j/n;
+
+            dx.data[index3] = d.data[index1]*(1.0/sqrt(v.data[channel] + EPS)) +    
+                                dv.data[channel]*(2*(x.data[index2] - m.data[channel])/nd) +
+                                dm.data[channel]*(1.0/nd);
+            
+        }
+    }
     return dx;
 }
 
